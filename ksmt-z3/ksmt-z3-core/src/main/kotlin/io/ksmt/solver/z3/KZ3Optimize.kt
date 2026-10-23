@@ -1,9 +1,6 @@
 package io.ksmt.solver.z3
 
-import com.microsoft.z3.Optimize
-import com.microsoft.z3.optimizeAssert
-import com.microsoft.z3.optimizeMaximize
-import com.microsoft.z3.optimizeMinimize
+import com.microsoft.z3.*
 import io.ksmt.KContext
 import io.ksmt.expr.KExpr
 import io.ksmt.solver.KSolverStatus
@@ -42,6 +39,16 @@ open class KZ3Optimize(private val ctx: KContext) : KZ3ConstraintSolver() {
 
         val z3Expr = with(exprInternalizer) { expr.internalizeExpr() }
         optimize.optimizeMinimize(z3Expr)
+    }
+
+    fun push() {
+        optimize.push()
+        z3Ctx.pushAssertionLevel()
+    }
+
+    fun pop() {
+        z3Ctx.popAssertionLevel()
+        optimize.pop()
     }
 
     fun check(timeout: Duration = Duration.INFINITE): KSolverStatus = z3TryCheck {

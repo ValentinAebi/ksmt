@@ -92,6 +92,14 @@ fun Optimize.optimizeMinimize(expr: Long) {
     Native.optimizeMinimize(context.nCtx(), nativeObject, expr)
 }
 
+fun Optimize.push() {
+    Native.optimizePush(context.nCtx(), nativeObject)
+}
+
+fun Optimize.pop() {
+    Native.optimizePop(context.nCtx(), nativeObject)
+}
+
 fun Solver.solverAssertAndTrack(expr: Long, track: Long) {
     Native.solverAssertAndTrack(context.nCtx(), nativeObject, expr, track)
 }
