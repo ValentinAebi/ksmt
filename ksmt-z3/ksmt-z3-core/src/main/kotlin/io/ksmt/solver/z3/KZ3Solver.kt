@@ -1,45 +1,23 @@
 package io.ksmt.solver.z3
 
-import com.microsoft.z3.Solver
-import com.microsoft.z3.Status
-import com.microsoft.z3.Z3Exception
-import com.microsoft.z3.solverAssert
-import com.microsoft.z3.solverAssertAndTrack
-import com.microsoft.z3.solverCheckAssumptions
-import com.microsoft.z3.solverGetUnsatCore
+import com.microsoft.z3.*
 import io.ksmt.KContext
 import io.ksmt.expr.KExpr
-import io.ksmt.solver.KModel
 import io.ksmt.solver.KSolver
-import io.ksmt.solver.KSolverException
 import io.ksmt.solver.KSolverStatus
-import io.ksmt.solver.model.KNativeSolverModel
 import io.ksmt.sort.KBoolSort
-import io.ksmt.utils.library.NativeLibraryLoaderUtils
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
-import java.lang.ref.PhantomReference
-import java.lang.ref.ReferenceQueue
-import java.util.*
 import kotlin.time.Duration
-import kotlin.time.DurationUnit
 
-open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration> {
-    private val z3Ctx = KZ3Context(ctx)
+open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration>, KZ3ConstraintSolver() {
+    override val z3Ctx = KZ3Context(ctx)
 
     private var lazyConfiguration: KZ3SolverLazyConfiguration? = null
     private var solverInitialized: Boolean = false
     private val solver by lazy { createSolver() }
     fun nativeSolver(): Solver = solver
 
-    private var lastCheckStatus = KSolverStatus.UNKNOWN
-    private var lastReasonOfUnknown: String? = null
-    private var lastModel: KModel? = null
-    private var lastUnsatCore: List<KExpr<KBoolSort>>? = null
-
     private var currentScope: UInt = 0u
-
-    @Suppress("LeakingThis")
-    private val contextCleanupActionHandler = registerContextForCleanup(this, z3Ctx)
 
     private val exprInternalizer by lazy {
         // assert internalizes before it touches solver, so resolve the configuration first
@@ -166,17 +144,7 @@ open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration
         solver.solverCheckAssumptions(z3Assumptions).processCheckResult()
     }
 
-    override fun model(): KModel = z3Try {
-        require(lastCheckStatus == KSolverStatus.SAT) {
-            "Model are only available after SAT checks, current solver status: $lastCheckStatus"
-        }
-        lastModel?.let { return it }
-
-        val z3Model = KZ3Model(solver.model, ctx, z3Ctx, exprInternalizer)
-        return KNativeSolverModel(z3Model).also {
-            lastModel = it
-        }
-    }
+    override fun queryModel(): KZ3Model = KZ3Model(solver.model, ctx, z3Ctx, exprInternalizer)
 
     override fun unsatCore(): List<KExpr<KBoolSort>> = z3Try {
         require(lastCheckStatus == KSolverStatus.UNSAT) { "Unsat cores are only available after UNSAT checks" }
@@ -190,90 +158,13 @@ open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration
         unsatCore
     }
 
-    override fun reasonOfUnknown(): String = z3Try {
-        require(lastCheckStatus == KSolverStatus.UNKNOWN) { "Unknown reason is only available after UNKNOWN checks" }
-        lastReasonOfUnknown ?: solver.reasonUnknown
-    }
+    override fun queryReasonUnknown(): String = solver.reasonUnknown
 
     override fun interrupt() = z3Try {
         solver.interrupt()
     }
 
-    override fun close() {
-        unregisterContextCleanup(contextCleanupActionHandler)
-        z3Ctx.close()
-    }
-
-    private fun Status?.processCheckResult() = when (this) {
-        Status.SATISFIABLE -> KSolverStatus.SAT
-        Status.UNSATISFIABLE -> KSolverStatus.UNSAT
-        Status.UNKNOWN -> KSolverStatus.UNKNOWN
-        null -> KSolverStatus.UNKNOWN
-    }.also { lastCheckStatus = it }
-
     private fun Solver.updateTimeout(timeout: Duration) {
-        val z3Timeout = if (timeout == Duration.INFINITE) {
-            UInt.MAX_VALUE.toInt()
-        } else {
-            timeout.toInt(DurationUnit.MILLISECONDS)
-        }
-        val params = z3Ctx.nativeContext.mkParams().apply {
-            add("timeout", z3Timeout)
-        }
-        setParameters(params)
-    }
-
-    private inline fun <reified T> z3Try(body: () -> T): T = try {
-        body()
-    } catch (ex: Z3Exception) {
-        throw KSolverException(ex)
-    }
-
-    private fun invalidateSolverState() {
-        lastReasonOfUnknown = null
-        lastCheckStatus = KSolverStatus.UNKNOWN
-        lastModel = null
-        lastUnsatCore = null
-    }
-
-    private inline fun z3TryCheck(body: () -> KSolverStatus): KSolverStatus = try {
-        invalidateSolverState()
-        body()
-    } catch (ex: Z3Exception) {
-        lastReasonOfUnknown = ex.message
-        KSolverStatus.UNKNOWN.also { lastCheckStatus = it }
-    }
-
-    companion object {
-        init {
-            System.setProperty("z3.skipLibraryLoad", "true")
-            NativeLibraryLoaderUtils.load<KZ3NativeLibraryLoader>()
-        }
-
-        private val cleanupHandlers = ReferenceQueue<KZ3Solver>()
-        private val contextForCleanup = IdentityHashMap<PhantomReference<KZ3Solver>, KZ3Context>()
-
-        /** Ensure Z3 native context is closed and all native memory is released.
-         * */
-        private fun registerContextForCleanup(solver: KZ3Solver, context: KZ3Context): PhantomReference<KZ3Solver> {
-            cleanupStaleContexts()
-            val cleanupHandler = PhantomReference(solver, cleanupHandlers)
-            contextForCleanup[cleanupHandler] = context
-
-            return cleanupHandler
-        }
-
-        private fun unregisterContextCleanup(handler: PhantomReference<KZ3Solver>) {
-            contextForCleanup.remove(handler)
-            handler.clear()
-            cleanupStaleContexts()
-        }
-
-        private fun cleanupStaleContexts() {
-            while (true) {
-                val handler = cleanupHandlers.poll() ?: break
-                contextForCleanup.remove(handler)?.close()
-            }
-        }
+        setParameters(mkTimeoutParams(timeout))
     }
 }

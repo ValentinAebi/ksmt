@@ -1,8 +1,6 @@
 package com.microsoft.z3
 
-import com.microsoft.z3.Native.BoolPtr
-import com.microsoft.z3.Native.IntPtr
-import com.microsoft.z3.Native.LongPtr
+import com.microsoft.z3.Native.*
 import com.microsoft.z3.enumerations.Z3_error_code
 import com.microsoft.z3.enumerations.Z3_lbool
 
@@ -80,6 +78,18 @@ fun getArraySortDomain(ctx: Long, sort: Long): List<Long> {
 
 fun Solver.solverAssert(expr: Long) {
     Native.solverAssert(context.nCtx(), nativeObject, expr)
+}
+
+fun Optimize.optimizeAssert(expr: Long) {
+    Native.optimizeAssert(context.nCtx(), nativeObject, expr)
+}
+
+fun Optimize.optimizeMaximize(expr: Long) {
+    Native.optimizeMaximize(context.nCtx(), nativeObject, expr)
+}
+
+fun Optimize.optimizeMinimize(expr: Long) {
+    Native.optimizeMinimize(context.nCtx(), nativeObject, expr)
 }
 
 fun Solver.solverAssertAndTrack(expr: Long, track: Long) {
