@@ -42,13 +42,13 @@ open class KZ3Optimize(private val ctx: KContext) : KZ3ConstraintSolver() {
     }
 
     fun push() {
-        optimize.push()
+        optimize.optimizePush()
         z3Ctx.pushAssertionLevel()
     }
 
     fun pop() {
         z3Ctx.popAssertionLevel()
-        optimize.pop()
+        optimize.optimizePop()
     }
 
     fun check(timeout: Duration = Duration.INFINITE): KSolverStatus = z3TryCheck {

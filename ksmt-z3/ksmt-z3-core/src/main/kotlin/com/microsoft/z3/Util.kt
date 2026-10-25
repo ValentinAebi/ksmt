@@ -92,11 +92,11 @@ fun Optimize.optimizeMinimize(expr: Long) {
     Native.optimizeMinimize(context.nCtx(), nativeObject, expr)
 }
 
-fun Optimize.push() {
+fun Optimize.optimizePush() {
     Native.optimizePush(context.nCtx(), nativeObject)
 }
 
-fun Optimize.pop() {
+fun Optimize.optimizePop() {
     Native.optimizePop(context.nCtx(), nativeObject)
 }
 
