@@ -9,7 +9,7 @@ import io.ksmt.sort.KBoolSort
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import kotlin.time.Duration
 
-open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration>, KZ3ConstraintSolver() {
+open class KZ3Solver(private val ctx: KContext) : KSolver<KZ3SolverConfiguration>, KZ3SolverBase() {
     override val z3Ctx = KZ3Context(ctx)
 
     private var lazyConfiguration: KZ3SolverLazyConfiguration? = null

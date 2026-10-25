@@ -16,7 +16,7 @@ import java.util.*
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
-abstract class KZ3ConstraintSolver : AutoCloseable {
+abstract class KZ3SolverBase : AutoCloseable {
 
     protected abstract val z3Ctx: KZ3Context
 
@@ -99,12 +99,12 @@ abstract class KZ3ConstraintSolver : AutoCloseable {
             NativeLibraryLoaderUtils.load<KZ3NativeLibraryLoader>()
         }
 
-        private val cleanupHandlers = ReferenceQueue<KZ3ConstraintSolver>()
-        private val contextForCleanup = IdentityHashMap<PhantomReference<KZ3ConstraintSolver>, KZ3Context>()
+        private val cleanupHandlers = ReferenceQueue<KZ3SolverBase>()
+        private val contextForCleanup = IdentityHashMap<PhantomReference<KZ3SolverBase>, KZ3Context>()
 
         /** Ensure Z3 native context is closed and all native memory is released.
          * */
-        private fun registerContextForCleanup(solver: KZ3ConstraintSolver, context: KZ3Context): PhantomReference<KZ3ConstraintSolver> {
+        private fun registerContextForCleanup(solver: KZ3SolverBase, context: KZ3Context): PhantomReference<KZ3SolverBase> {
             cleanupStaleContexts()
             val cleanupHandler = PhantomReference(solver, cleanupHandlers)
             contextForCleanup[cleanupHandler] = context
@@ -112,7 +112,7 @@ abstract class KZ3ConstraintSolver : AutoCloseable {
             return cleanupHandler
         }
 
-        private fun unregisterContextCleanup(handler: PhantomReference<KZ3ConstraintSolver>) {
+        private fun unregisterContextCleanup(handler: PhantomReference<KZ3SolverBase>) {
             contextForCleanup.remove(handler)
             handler.clear()
             cleanupStaleContexts()

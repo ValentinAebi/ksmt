@@ -8,7 +8,7 @@ import io.ksmt.sort.KArithSort
 import io.ksmt.sort.KBoolSort
 import kotlin.time.Duration
 
-open class KZ3Optimize(private val ctx: KContext) : KZ3ConstraintSolver() {
+open class KZ3Optimize(private val ctx: KContext) : KZ3SolverBase() {
     override val z3Ctx = KZ3Context(ctx)
 
     private val optimize by lazy { createOptimize() }
